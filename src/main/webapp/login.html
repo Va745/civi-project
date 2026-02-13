@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Login to CivicPulse">
+    <title>Login - CivicPulse</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="container navbar-content">
+            <div class="navbar-brand">🏙️ CivicPulse</div>
+            <ul class="navbar-menu">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="track-issue.html">Track Issue</a></li>
+                <li><a href="register.html" class="btn btn-sm btn-secondary">Register</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container" style="max-width: 500px; margin-top: 4rem; margin-bottom: 4rem;">
+        <div class="card">
+            <div class="card-header text-center">
+                <h2 class="card-title">Welcome Back</h2>
+                <p style="color: var(--text-secondary);">Login to your CivicPulse account</p>
+            </div>
+
+            <div class="card-body">
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label for="identifier" class="form-label">Email or Phone Number</label>
+                        <input type="text" id="identifier" class="form-control" placeholder="Enter your email or phone"
+                            required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password" class="form-label">Password</label>
+                        <input type="password" id="password" class="form-control" placeholder="Enter your password"
+                            required>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">
+                        Login
+                    </button>
+                </form>
+
+                <p class="text-center mt-3" style="color: var(--text-secondary);">
+                    Don't have an account?
+                    <a href="register.html" style="font-weight: 600;">Register here</a>
+                </p>
+            </div>
+        </div>
+
+        <!-- Demo Credentials -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h4 class="card-title">Demo Credentials</h4>
+            </div>
+            <div class="card-body">
+                <p><strong>Admin:</strong><br>
+                    Email: admin@civicpulse.com<br>
+                    Password: admin123</p>
+
+                <p><strong>Road Department:</strong><br>
+                    Email: road@civicpulse.com<br>
+                    Password: dept123</p>
+
+                <p><strong>Water Department:</strong><br>
+                    Email: water@civicpulse.com<br>
+                    Password: dept123</p>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 CivicPulse. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="js/api.js"></script>
+    <script>
+        // Redirect if already logged in
+        if (isLoggedIn()) {
+            const user = getUserData();
+            if (user.role === 'ADMIN') {
+                window.location.href = 'admin-dashboard.html';
+            } else if (user.role === 'DEPARTMENT') {
+                window.location.href = 'department-dashboard.html';
+            } else {
+                window.location.href = 'citizen-dashboard.html';
+            }
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const identifier = document.getElementById('identifier').value;
+            const password = document.getElementById('password').value;
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+
+            try {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Logging in...';
+
+                const response = await AuthAPI.login(identifier, password);
+
+                if (response.success) {
+                    showAlert('Login successful! Redirecting...', 'success');
+
+                    setTimeout(() => {
+                        const user = response.user;
+                        if (user.role === 'ADMIN') {
+                            window.location.href = 'admin-dashboard.html';
+                        } else if (user.role === 'DEPARTMENT') {
+                            window.location.href = 'department-dashboard.html';
+                        } else {
+                            window.location.href = 'citizen-dashboard.html';
+                        }
+                    }, 1000);
+                } else {
+                    showAlert(response.message || 'Login failed', 'error');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Login';
+                }
+            } catch (error) {
+                showAlert(error.message || 'Login failed', 'error');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Login';
+            }
+        });
+    </script>
+</body>
+
+</html>

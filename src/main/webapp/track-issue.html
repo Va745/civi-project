@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Track civic issues on CivicPulse">
+    <title>Track Issue - CivicPulse</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="container navbar-content">
+            <div class="navbar-brand">🏙️ CivicPulse</div>
+            <ul class="navbar-menu"></ul>
+        </div>
+    </nav>
+
+    <div class="container" style="margin-top: 3rem; margin-bottom: 3rem;">
+        <div class="card">
+            <div class="card-header text-center">
+                <h2 class="card-title">Track Your Issue</h2>
+                <p style="color: var(--text-secondary);">Enter your Issue ID to track its status</p>
+            </div>
+
+            <div class="card-body">
+                <form id="trackForm" class="d-flex gap-2">
+                    <input type="text" id="issueId" class="form-control"
+                        placeholder="Enter Issue ID (e.g., CIVIC-RD-20260210-0001)" required style="flex: 1;">
+                    <button type="submit" class="btn btn-primary">Track</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Issue Details -->
+        <div id="issueDetails" class="hidden"></div>
+    </div>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 CivicPulse. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+        document.getElementById('trackForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const issueId = document.getElementById('issueId').value.trim();
+            const detailsDiv = document.getElementById('issueDetails');
+
+            try {
+                showLoading(detailsDiv);
+                detailsDiv.classList.remove('hidden');
+
+                const response = await IssueAPI.trackIssue(issueId);
+
+                if (response.success) {
+                    displayIssueDetails(response);
+                } else {
+                    detailsDiv.innerHTML = `
+                        <div class="card">
+                            <div class="alert alert-error">
+                                Issue not found. Please check the Issue ID and try again.
+                            </div>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                detailsDiv.innerHTML = `
+                    <div class="card">
+                        <div class="alert alert-error">
+                            ${error.message || 'Failed to fetch issue details'}
+                        </div>
+                    </div>
+                `;
+            }
+        });
+
+        function displayIssueDetails(data) {
+            const issue = data.issue;
+            const timeline = data.timeline || [];
+            const deptName = data.departmentName || 'Not assigned';
+
+            const detailsDiv = document.getElementById('issueDetails');
+
+            detailsDiv.innerHTML = `
+                <div class="card">
+                    <div class="card-header">
+                        <div class="d-flex justify-between align-center">
+                            <h3 class="card-title">${issue.issueId}</h3>
+                            <span class="badge ${getStatusBadgeClass(issue.status)}">
+                                ${formatStatus(issue.status)}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="card-body">
+                        <div class="grid grid-2 mb-3">
+                            <div>
+                                <p><strong>Category:</strong> ${issue.category}</p>
+                                <p><strong>Status:</strong> ${formatStatus(issue.status)}</p>
+                                <p><strong>Report Count:</strong> ${issue.reportCount} citizen(s)</p>
+                            </div>
+                            <div>
+                                <p><strong>Department:</strong> ${deptName}</p>
+                                <p><strong>Reported:</strong> ${formatDate(issue.createdAt)}</p>
+                                <p><strong>Last Updated:</strong> ${formatDate(issue.updatedAt)}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <p><strong>Location:</strong> ${issue.address}</p>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <p><strong>Description:</strong></p>
+                            <p style="color: var(--text-secondary);">${issue.description}</p>
+                        </div>
+                        
+                        ${issue.imageUrl ? `
+                            <div class="mb-3">
+                                <p><strong>Image:</strong></p>
+                                <img src="${issue.imageUrl}" alt="Issue" style="max-width: 100%; border-radius: var(--radius-md);">
+                            </div>
+                        ` : ''}
+                        
+                        <!-- Map -->
+                        <div id="issueMap" style="height: 300px; border-radius: var(--radius-md); margin-bottom: 1.5rem;"></div>
+                    </div>
+                </div>
+                
+                <!-- Timeline -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Status Timeline</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="timeline">
+                            ${timeline.map(item => `
+                                <div class="timeline-item">
+                                    <div class="timeline-content">
+                                        <div class="timeline-time">${formatDate(item.createdAt)}</div>
+                                        <div class="d-flex justify-between align-center mb-1">
+                                            <strong>${formatStatus(item.status)}</strong>
+                                            <span class="badge ${getStatusBadgeClass(item.status)}">
+                                                ${formatStatus(item.status)}
+                                            </span>
+                                        </div>
+                                        <p style="color: var(--text-secondary); margin: 0;">
+                                            Updated by: ${item.updatedByName} (${item.updatedByRole})
+                                        </p>
+                                        ${item.remarks ? `
+                                            <p style="margin-top: 0.5rem; font-style: italic;">
+                                                "${item.remarks}"
+                                            </p>
+                                        ` : ''}
+                                        ${item.proofImageUrl ? `
+                                            <img src="${item.proofImageUrl}" alt="Proof" style="max-width: 200px; margin-top: 0.5rem; border-radius: var(--radius-sm);">
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Initialize map
+            setTimeout(() => {
+                const map = L.map('issueMap').setView([issue.locationLat, issue.locationLng], 15);
+
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors'
+                }).addTo(map);
+
+                L.marker([issue.locationLat, issue.locationLng])
+                    .addTo(map)
+                    .bindPopup(`<b>${issue.category}</b><br>${issue.address}`)
+                    .openPopup();
+            }, 100);
+        }
+    </script>
+</body>
+
+</html>
